@@ -1,223 +1,398 @@
-# 📊 API de Campanhas — InsightTrack
+# InsightTrack – Backend
 
-Este projeto é uma API REST desenvolvida em **Spring Boot** para gerenciar campanhas e seus resultados, permitindo:
+API REST desenvolvida em **Spring Boot** para suportar a plataforma InsightTrack, responsável por:
 
-- Criar campanhas
-- Inserir resultados associados a uma campanha
-- Gerar relatório consolidado dos últimos 30 dias
-
----
-
-# 🔧 Tecnologias utilizadas
-
-- Java 17+
-- Spring Boot
-- Spring Data JPA
-- H2 Database (em memória)
-- Maven
+- Autenticação de usuários (login + cadastro)
+- Gestão de campanhas de marketing
+- Registro de resultados de campanha
+- Geração de relatórios consolidados
+- Isolamento de dados por usuário (cada usuário vê apenas suas campanhas)
 
 ---
 
-# 🚀 Como rodar o projeto
-✔️ 1. Requisitos
+## 🧱 Tecnologias utilizadas
 
-Antes de iniciar, instale:
+- **Java 17+**
+- **Spring Boot 3**
+- **Spring Web**
+- **Spring Data JPA**
+- **Spring Security** (para criptografia de senha / JWT)
+- **H2 Database** (banco em memória para desenvolvimento)
+- **Maven**
 
-Java 17 ou superior
+---
 
-Maven 3.8+
+## 🧬 Arquitetura em camadas
 
-Uma IDE (opcional): IntelliJ, Eclipse ou VS Code
+O projeto segue a estrutura:
 
-✔️ 2. Clonar o repositório
+- `entity` – entidades JPA (mapeamento do banco)
+- `repository` – interfaces `JpaRepository` para acesso aos dados
+- `service` – regras de negócio e orquestração
+- `controller` – endpoints REST (camada de API)
+- `dto` – objetos de transferência de dados (request/response)
 
-Se o projeto estiver no GitHub:
+---
 
-git clone https://github.com/gabrielneriqa/insight_back
+## 🗄️ Modelagem de dados
 
-Entre na pasta:
+### `Usuario`
 
-cd nome-do-projeto
+Representa um usuário do sistema.
 
-✔️ 3. Rodar o backend
+Campos principais:
 
-Execute:
+- `id : Long`
+- `nome : String`
+- `email : String` (único)
+- `senha : String` (armazenada **criptografada** com BCrypt)
 
-mvn spring-boot:run
+### `Campanha`
 
+Campanha de marketing pertencente a um usuário.
 
-Se tudo estiver correto, você verá no console:
+Campos:
 
-Tomcat started on port(s): 8080
-Started DemoApplication
+- `id : Long`
+- `nome : String`
+- `usuario : Usuario` (`@ManyToOne`)
 
+Relação:
 
-A API estará disponível em:
+- Um `Usuario` pode ter **várias campanhas**
 
+### `ResultadoCampanha`
+
+Registro de resultado de uma campanha em uma determinada data.
+
+Campos:
+
+- `id : Long`
+- `campanha : Campanha` (`@ManyToOne`)
+- `alcance : Integer`
+- `engajamento : Integer`
+- `cliques : Integer`
+- `leads : Integer`
+- `data : LocalDate`
+
+Relações:
+
+- Uma `Campanha` pode ter **vários resultados**
+- Resultados são usados para montar o **relatório consolidado** da campanha
+
+---
+
+## 👤 Usuários demo e dados iniciais
+
+No `DemoApplication` existe um `CommandLineRunner` que cria **dois usuários de demonstração** e algumas campanhas com resultados, se ainda não existirem:
+
+### Usuário 1 – Administrador
+
+- E-mail: `admin@insighttrack.com`
+- Senha: `123456`
+
+Campanhas de exemplo:
+
+- `Campanha Instagram - Admin`
+- `Campanha Google Ads - Admin`
+
+Com alguns resultados (alcance, engajamento, cliques, leads) distribuídos em datas recentes.
+
+### Usuário 2 – Gestor de Marketing
+
+- E-mail: `gestor@insighttrack.com`
+- Senha: `123456`
+
+Campanhas de exemplo:
+
+- `Campanha Facebook - Gestor`
+- `Campanha LinkedIn - Gestor`
+
+Também com resultados de demonstração.
+
+> Esses dados são criados apenas se não existirem usuários com esses e-mails no banco.
+
+---
+
+## 🔐 Autenticação e segurança
+
+- Senhas são armazenadas de forma **criptografada** usando `PasswordEncoder` (BCrypt).
+- No login, a senha informada é validada com `passwordEncoder.matches(...)`.
+- Em caso de sucesso, é gerado um **token** (via `TokenService`) e retornado no `LoginResponseDTO`.
+
+### Endpoints de autenticação
+
+#### `POST /api/auth/login`
+
+Request (JSON):
+
+```json
+{
+  "email": "admin@insighttrack.com",
+  "senha": "123456"
+}
+Response (200):
+
+json
+Copy code
+{
+  "token": "token_jwt_ou_similar",
+  "usuarioId": 1,
+  "nome": "Administrador"
+}
+Em caso de falha (usuário ou senha inválidos), retorna:
+
+HTTP 401 Unauthorized
+
+POST /api/auth/registrar
+Cadastra um novo usuário.
+
+Request (JSON):
+
+json
+Copy code
+{
+  "nome": "Novo Usuário",
+  "email": "novo@teste.com",
+  "senha": "123456"
+}
+Regras:
+
+O e-mail deve ser único.
+
+A senha é automaticamente criptografada antes de salvar.
+
+Responses:
+
+201 Created → usuário criado
+
+400 Bad Request → se o e-mail já existir ("E-mail já cadastrado")
+
+🎯 Endpoints de campanhas
+Controller: CampanhaController
+Base: /api/campanhas
+@CrossOrigin("*") habilitado para permitir acesso pelo frontend.
+
+Importante: todas as campanhas estão vinculadas a um usuarioId.
+O frontend envia esse usuarioId no corpo ao criar campanhas e usa /usuario/{usuarioId} para listar.
+
+POST /api/campanhas
+Cria uma nova campanha para um usuário.
+
+Request (JSON):
+
+json
+Copy code
+{
+  "nome": "Campanha Black Friday",
+  "usuarioId": 1
+}
+Response (201/200):
+
+json
+Copy code
+{
+  "id": 3,
+  "nome": "Campanha Black Friday",
+  "usuario": {
+    "id": 1,
+    "nome": "Administrador",
+    "email": "admin@insighttrack.com"
+  }
+}
+GET /api/campanhas/{id}
+Busca uma campanha pelo ID.
+
+Response (200):
+
+json
+Copy code
+{
+  "id": 1,
+  "nome": "Campanha Instagram - Admin",
+  "usuario": {
+    "id": 1,
+    "nome": "Administrador",
+    "email": "admin@insighttrack.com"
+  }
+}
+Se não existir, é lançada uma exceção com mensagem “Campanha não encontrada”.
+
+GET /api/campanhas/usuario/{usuarioId}
+Lista todas as campanhas de um determinado usuário.
+
+Exemplo:
+
+http
+Copy code
+GET /api/campanhas/usuario/1
+Response (200):
+
+json
+Copy code
+[
+  {
+    "id": 1,
+    "nome": "Campanha Instagram - Admin",
+    "usuario": { "id": 1, "nome": "Administrador" }
+  },
+  {
+    "id": 2,
+    "nome": "Campanha Google Ads - Admin",
+    "usuario": { "id": 1, "nome": "Administrador" }
+  }
+]
+É esse endpoint que o frontend usa para montar a lista "Minhas Campanhas"
+e o <select> da tela de cadastro de resultados.
+
+DELETE /api/campanhas/{id}
+Remove uma campanha específica e todos os seus resultados associados.
+
+Fluxo:
+
+Verifica se a campanha existe.
+
+Usa ResultadoCampanhaRepository.deleteByCampanhaId(id) para apagar os resultados.
+
+Depois apaga a campanha: campanhaRepositorio.deleteById(id).
+
+Responses:
+
+204 No Content ou 200 OK (dependendo da configuração)
+
+404 / erro se a campanha não existir
+
+📈 Endpoints de resultados e relatórios
+Controller: ResultadoCampanhaController
+Base: /api/resultados
+@CrossOrigin("*") habilitado.
+
+POST /api/resultados
+Registra um novo resultado de campanha.
+
+Request (JSON):
+
+json
+Copy code
+{
+  "campanhaId": 1,
+  "alcance": 50000,
+  "engajamento": 3200,
+  "cliques": 1500,
+  "leads": 450,
+  "data": "2025-11-15"
+}
+A data deve estar no formato yyyy-MM-dd (LocalDate).
+
+Response (200/201):
+
+json
+Copy code
+{
+  "id": 10,
+  "campanha": {
+    "id": 1,
+    "nome": "Campanha Instagram - Admin"
+  },
+  "alcance": 50000,
+  "engajamento": 3200,
+  "cliques": 1500,
+  "leads": 450,
+  "data": "2025-11-15"
+}
+GET /api/resultados/relatorio/{campanhaId}
+Gera um relatório consolidado dos últimos 30 dias de uma campanha:
+
+Soma de alcance, engajamento, cliques e leads.
+
+O próprio controller calcula:
+
+java
+Copy code
+LocalDate fim = LocalDate.now();
+LocalDate inicio = fim.minusDays(30);
+Response (200):
+
+json
+Copy code
+{
+  "campanhaId": 1,
+  "nomeCampanha": "Campanha Instagram - Admin",
+  "totalAlcance": 80000,
+  "totalEngajamento": 5200,
+  "totalCliques": 2300,
+  "totalLeads": 650,
+  "dataInicio": "2025-10-19",
+  "dataFim": "2025-11-18"
+}
+Esse endpoint é consumido pelo frontend para montar o gráfico de barras com Chart.js.
+
+📦 Regras importantes de negócio
+Isolamento por usuário:
+
+Campanhas são sempre criadas vinculadas a um Usuario (usuarioId).
+
+O frontend usa /api/campanhas/usuario/{usuarioId} para listar campanhas.
+
+Na prática, cada usuário só visualiza suas próprias campanhas.
+
+Senhas seguras:
+
+Senhas nunca são armazenadas em texto puro.
+
+É usado PasswordEncoder (BCrypt) para criptografar.
+
+Exclusão de campanha:
+
+Remove resultados antes de remover a campanha, evitando registros “órfãos”.
+
+Relatório automático:
+
+Sempre considera a janela de 30 dias retroativos a partir da data atual.
+
+⚙️ Como rodar o backend
+Pré-requisitos
+Java 17+
+
+Maven
+
+Passos
+Clonar o repositório ou abrir o projeto na IDE.
+
+Conferir o application.properties (por exemplo, porta e configuração do H2).
+
+No terminal, na pasta do projeto, executar:
+
+bash
+Copy code
+mvn clean spring-boot:run
+A aplicação sobe em:
+
+text
+Copy code
 http://localhost:8080
+(Opcional) Se o H2 Console estiver habilitado, pode ser acessado em:
 
-✔️ 4. Acessar o banco H2 (opcional)
-
-Com o projeto rodando, abra no navegador:
-
+text
+Copy code
 http://localhost:8080/h2-console
+🧪 Testes via Postman
+Sugestão de ordem de testes:
 
+POST /api/auth/login com admin@insighttrack.com / 123456
 
-Use estas credenciais:
+GET /api/campanhas/usuario/1
 
-Campo	Valor
-JDBC URL	jdbc:h2:mem:insighttrackdb
-Username	sa
-Password	(vazio)
-✔️ 5. Encerrar o servidor
+POST /api/campanhas para criar novas campanhas
 
-No terminal onde o projeto está rodando, pressione:
+POST /api/resultados para registrar novos resultados
 
-CTRL + C
----
-# 🧪 Como testar a API (via Postman)
+GET /api/resultados/relatorio/{campanhaId} para ver o relatório consolidado
 
-A API possui três operações principais:
+DELETE /api/campanhas/{id} para remover uma campanha e seus resultados
 
-Criar campanhas
+Também é possível testar o cadastro de novos usuários com:
 
-Cadastrar resultados de campanhas
+POST /api/auth/registrar
 
-Gerar relatórios consolidados
-
-A seguir estão os passos para testar cada funcionalidade no Postman.
-
-✔️ 1. Criar uma Campanha
-Método: POST
-URL:
-http://localhost:8080/api/campanhas
-
-Body → raw → JSON
-{
-"nome": "Campanha Black Friday"
-}
-
-Resposta esperada:
-{
-"id": 1,
-"nome": "Campanha Black Friday"
-}
-
-
-Guarde o id da campanha criada.
-Ele será usado para associar os resultados.
-
-✔️ 2. Cadastrar resultados de campanha
-Método: POST
-URL:
-http://localhost:8080/api/resultados
-
-Body → raw → JSON
-{
-"campanhaId": 1,
-"alcance": 50000,
-"engajamento": 3200,
-"cliques": 1500,
-"leads": 450,
-"data": "2025-11-15"
-}
-
-Resposta esperada:
-{
-"id": 1,
-"campanha": {
-"id": 1,
-"nome": "Campanha Black Friday"
-},
-"alcance": 50000,
-"engajamento": 3200,
-"cliques": 1500,
-"leads": 450,
-"data": "2025-11-15"
-}
-
-
-➡️ Você pode cadastrar quantos resultados quiser para o mesmo campanhaId.
-
-✔️ 3. Gerar relatório da campanha (últimos 30 dias)
-Método: GET
-URL:
-http://localhost:8080/api/resultados/relatorio/1
-
-
-➡️ Substitua 1 pelo ID da campanha que deseja consultar.
-
-Resposta esperada:
-{
-"nomeCampanha": "Campanha Black Friday",
-"totalAlcance": 50000,
-"totalEngajamento": 3200,
-"totalCliques": 1500,
-"totalLeads": 450
-}
-
-
-Se você tiver cadastrado vários resultados diferentes, o sistema somará todos e gerará o total consolidado.
-
-🧪 Exemplos de testes mais completos
-
-Para testar um relatório real, você pode inserir múltiplos resultados, como:
-
-{
-"campanhaId": 1,
-"alcance": 30000,
-"engajamento": 2000,
-"cliques": 900,
-"leads": 200,
-"data": "2025-11-01"
-}
-
-{
-"campanhaId": 1,
-"alcance": 40000,
-"engajamento": 3500,
-"cliques": 1800,
-"leads": 300,
-"data": "2025-11-10"
-}
-
-{
-"campanhaId": 1,
-"alcance": 25000,
-"engajamento": 1500,
-"cliques": 700,
-"leads": 160,
-"data": "2025-11-20"
-}
-
-Relatório consolidado esperado:
-{
-"nomeCampanha": "Campanha Black Friday",
-"totalAlcance": 95000,
-"totalEngajamento": 7000,
-"totalCliques": 3400,
-"totalLeads": 660
-}
-
-⚠️ Erros comuns no Postman
-❌ 404 — Endpoint não encontrado
-
-Verifique se está usando as URLs corretas:
-
-/api/campanhas
-
-/api/resultados
-
-/api/resultados/relatorio/{id}
-
-❌ 400 — JSON inválido
-
-Campos faltando
-
-Data com formato errado (YYYY-MM-DD)
-
-❌ 500 — Campanha não encontrada
-
-O campanhaId informado não existe
-
-Ou você tentou gerar relatório de uma campanha inexistente
+E então logar com essas credenciais para ver campanhas isoladas.
