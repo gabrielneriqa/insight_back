@@ -33,8 +33,7 @@ Uma IDE (opcional): IntelliJ, Eclipse ou VS Code
 
 Se o projeto estiver no GitHub:
 
-git clone https://github.com/seu-repositorio/aqui.git
-
+git clone https://github.com/gabrielneriqa/insight_back
 
 Entre na pasta:
 
@@ -75,11 +74,6 @@ Password	(vazio)
 No terminal onde o projeto está rodando, pressione:
 
 CTRL + C
-## 1. Clonar o repositório
-
-git clone https://github.com/seu-repo/aqui.git
-cd nome-da-pasta
-
 ---
 # 🧪 Como testar a API (via Postman)
 
