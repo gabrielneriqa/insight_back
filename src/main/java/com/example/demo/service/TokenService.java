@@ -29,4 +29,32 @@ public class TokenService {
                 .signWith(Keys.hmacShaKeyFor(segredo.getBytes(StandardCharsets.UTF_8)))
                 .compact();
     }
+
+    //Extrai o "sub" (ID do usuário) do token
+    public String getSubject(String token) {
+        return getClaims(token).getSubject();
+    }
+
+
+    //Valida expiração e assinatura
+    public boolean validarToken(String token, Usuario usuario) {
+        Claims claims = getClaims(token);
+
+        boolean expirado = claims.getExpiration().before(new Date());
+        if (expirado) return false;
+
+        String subject = claims.getSubject();
+        return subject.equals(usuario.getId().toString());
+    }
+
+    //Extrai os Claims para uso interno
+    private Claims getClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(Keys.hmacShaKeyFor(segredo.getBytes(StandardCharsets.UTF_8)))
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+
 }
