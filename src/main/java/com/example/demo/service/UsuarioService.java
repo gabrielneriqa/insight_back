@@ -44,4 +44,47 @@ public class UsuarioService {
 
         return repositorio.save(novo);
     }
+
+    public Usuario buscarPorId(Long id) {
+        return repositorio.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuário não encontrado"));
+    }
+
+
+    public Usuario atualizarNome(Long id, String novoNome) {
+        Usuario usuario = buscarPorId(id);
+
+        usuario.setNome(novoNome);
+        return repositorio.save(usuario);
+    }
+
+
+
+    public Usuario atualizarEmail(Long id, String novoEmail) {
+
+        // Verifica se o email já está em uso por outro usuário
+        repositorio.findByEmail(novoEmail).ifPresent(u -> {
+            if (!u.getId().equals(id)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "E-mail já está em uso");
+            }
+        });
+
+        Usuario usuario = buscarPorId(id);
+        usuario.setEmail(novoEmail);
+        return repositorio.save(usuario);
+    }
+
+    public Usuario atualizarSenha(Long id, String senhaAtual, String novaSenha) {
+        Usuario usuario = buscarPorId(id);
+
+        if (!passwordEncoder.matches(senhaAtual, usuario.getSenha())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Senha atual incorreta");
+        }
+
+        usuario.setSenha(passwordEncoder.encode(novaSenha));
+        return repositorio.save(usuario);
+    }
+
+
+
 }
