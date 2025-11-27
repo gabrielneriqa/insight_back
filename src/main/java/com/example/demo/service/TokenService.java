@@ -1,6 +1,7 @@
 package com.example.demo.service;
 
 import com.example.demo.entity.Usuario;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,8 +19,6 @@ public class TokenService {
     private String segredo;
 
     public String gerarToken(Usuario usuario) {
-        Instant agora = Instant.now();
-        Instant expiracao = agora.plus(1, ChronoUnit.DAYS);
 
         return Jwts.builder()
                 .setSubject(usuario.getId().toString())

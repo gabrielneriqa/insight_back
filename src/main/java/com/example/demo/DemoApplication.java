@@ -32,7 +32,7 @@ public class DemoApplication {
             // ---------- USUÁRIOS INICIAIS ----------
 
             // Usuário 1: Administrador
-            Usuario usuario1 = usuarioRepositorio.findByEmail("admin@insighttrack.com")
+            Usuario usuario1 = usuarioRepositorio.findByEmail("insighttrack.com")
                     .orElseGet(() -> {
                         Usuario u = new Usuario(
                                 "Administrador",
