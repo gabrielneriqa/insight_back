@@ -24,8 +24,8 @@ public class TokenService {
         return Jwts.builder()
                 .setSubject(usuario.getId().toString())
                 .claim("nome", usuario.getNome())
-                .setIssuedAt(Date.from(agora))
-                .setExpiration(Date.from(expiracao))
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 86400000)) // 1 dia
                 .signWith(Keys.hmacShaKeyFor(segredo.getBytes(StandardCharsets.UTF_8)))
                 .compact();
     }
